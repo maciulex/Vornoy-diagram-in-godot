@@ -1,17 +1,24 @@
 extends Node2D
 
 
-var AMOUNT_OF_POINTS : int = 50;
+@export var AMOUNT_OF_POINTS : int = 150;
+@export var dealay : float = 0.0;
+@export var timeToReset : float = 20;
 var BOARD_SIZE : Vector2;
 var MARGIN_FOR_POINTS = 20;
 var POINTS_MINIMUM_DISTANCE = 90;
 
 var points  : Array;
 var lines   : Array;
-var centers : Array;
+var polyLines : Array;
+var polyLinesCenters : Array;
 var triangles : Array;
 enum CirclePosition {INSIDE, ON_EDGE, OUTSIDE}
 var pointNode = preload("res://point.tscn");
+
+var polygons = [];
+var SimplePolygon = preload("res://polygon.tscn");
+
 
 func getRandomPoints():
 	#points = [Vector2(1595, 999), Vector2(1498, 142), Vector2(178, 77), Vector2(559, 904),Vector2(1879, 882), Vector2(1619, 330), Vector2(1448, 596)];
@@ -21,6 +28,7 @@ func getRandomPoints():
 	#	drawCross(points[i])
 	for i in range(AMOUNT_OF_POINTS):
 		drawCross(points[i])
+		
 func generateRandomPoint(margin = true) -> Vector2:
 	var point;
 	while (true):
@@ -31,22 +39,9 @@ func generateRandomPoint(margin = true) -> Vector2:
 			break;
 	return point
 
-class Polygon:
-	var points : Array = [];
-	var lines  : Array = [];
-	var centerPoint : int;
 
-func drawCircle(s, r):
-	var circle_inst = $Circle.duplicate();
-	circle_inst.update(s,r);
-	$Circles.add_child(circle_inst);
 
-func drawCross(point : Vector2, color : Color = Color(255,255,255)):
-	var insta_pointNode = pointNode.instantiate();
-	insta_pointNode.position = point;
-	insta_pointNode.get_node("Line2D").default_color = color;
-	insta_pointNode.get_node("Line2D2").default_color = color;
-	$Points.add_child(insta_pointNode);
+
 
 
 
@@ -67,24 +62,6 @@ func getDst(point1, point2):
 		(point2.y-point1.y)*(point2.y-point1.y)
 	)
 
-func getClosestPointIndex(Point, exceptions) -> Array:
-	var lowestDist	    = -1;
-	var lowestDistIndex = -1;
-	for i in range(AMOUNT_OF_POINTS):
-		if (i == Point || exceptions.find(i) != -1):
-			continue;
-			
-		var distance = getDst(points[Point],points[i])
-		
-		if (lowestDist == -1):
-			lowestDist = distance;
-			lowestDistIndex = i;
-			continue;
-		if (distance < lowestDist):
-			lowestDist = distance;
-			lowestDistIndex = i;
-	return [lowestDistIndex, lowestDist];
-
 func getPointDeg(point, point2, deg):
 	var angle = deg_to_rad(deg);
 	var cosd = cos(angle);
@@ -103,6 +80,18 @@ func drawLine(point1, point2, color : Color = Color(255,255,255)):
 	line.points = PackedVector2Array([point1, point2])
 	line.default_color = color;
 	$Lines.add_child(line);
+
+func drawCircle(s, r):
+	var circle_inst = $Circle.duplicate();
+	circle_inst.update(s,r);
+	$Circles.add_child(circle_inst);
+
+func drawCross(point : Vector2, color : Color = Color(255,255,255)):
+	var insta_pointNode = pointNode.instantiate();
+	insta_pointNode.position = point;
+	insta_pointNode.get_node("Line2D").default_color = color;
+	insta_pointNode.get_node("Line2D2").default_color = color;
+	$Points.add_child(insta_pointNode);
 
 func isOnEdgeOfCircle(point : Vector2, S : Vector2, r) -> CirclePosition:
 	#(point.x*point.x) + (point.y*point.y) - 2*(S.x*point.x)-2*(S.y*point.y)
@@ -124,16 +113,16 @@ func getBigTriangle():
 	var A = 4000;
 	var margin = 40
 	var a = Vector2(
-		(1080/2)-A/2-margin,
+		(BOARD_SIZE.y/2)-A/2-margin,
 		0-margin
 	)
 	var b = Vector2(
-		(1080/2)+A/2+margin,
+		(BOARD_SIZE.y/2)+A/2+margin,
 		0-margin
 	)
 	var c = Vector2(
 		A/2,
-		2500+margin
+		H+margin
 	)
 	return[a,b,c];
 	
@@ -208,7 +197,9 @@ func triangleEquality(t1, t2):
 	if (a1 != -1 && a2 != -1 && a3 != -1):
 		return true;
 	return false;
+	
 
+	
 func fundTriantgleIndex(triangle):
 	var counter = 0;
 	for tri in triangles:
@@ -274,14 +265,15 @@ func triangulation():
 			#drawLine(newTriangle[1], newTriangle[2], Color("CORAL"));
 			#drawLine(newTriangle[0], newTriangle[2], Color("CORAL"));
 		#await get_tree().create_timer(2).timeout
-	var oryginalSuper =  getBigTriangle();
+	#var oryginalSuper =  getBigTriangle();
 	#removeWithSuper(oryginalSuper);
 	
+	return;
 	for tri in triangles:
-		#drawLine(tri[0], tri[1]);
-		#drawLine(tri[1], tri[2]);
-		#drawLine(tri[2], tri[0]);
-		pass;
+		drawLine(tri[0], tri[1]);
+		drawLine(tri[1], tri[2]);
+		drawLine(tri[2], tri[0]);
+	#	pass;
 
 func removeWithSuper(oryginalSuper):
 	var Clean = false;
@@ -298,14 +290,14 @@ func removeWithSuper(oryginalSuper):
 
 
 func VernoiDiagram():
-	var centers = []
 	triangulation()
+	
 	#for triangle in triangles:
 	#	var S = getTriangleCircumcenterCenter(triangle);
-	#	centers.append(S);
+	#	polyLines.append(S);
 		
-	#for center in range(centers.size()-1):
-	#	drawLine(centers[center], centers[center+1], Color("CORAL"))
+	#for center in range(polyLines.size()-1):
+	#	drawLine(polyLines[center], polyLines[center+1], Color("CORAL"))
 	for triangle in triangles:
 		for t2 in triangles:
 			var a1 = triangle.find(t2[0]) != -1;
@@ -314,19 +306,102 @@ func VernoiDiagram():
 			if (a1 && a2) || (a2 && a3) || (a1 && a3):
 				var S = getTriangleCircumcenterCenter(triangle);
 				var S2 = getTriangleCircumcenterCenter(t2);
-				drawCross(S, Color("BLUE_VIOLET"))
-				drawCross(S2, Color("BLUE_VIOLET"))
-				centers.append([S,S2]);
-				drawLine(S, S2, Color("CORAL"))
-				await get_tree().create_timer(0.1).timeout
+				if (polyLines.find([S,S2]) == -1 && polyLines.find([S2,S]) == -1):
+					drawCross(S2, Color("BLUE_VIOLET"))
+					drawCross(S, Color("BLUE_VIOLET"))
+					drawLine(S, S2, Color("CORAL"))
+					polyLines.append([S,S2]);
+				#await get_tree().create_timer(dealay).timeout
+	$Timer.start(timeToReset);
+
+func squaredPolar(point,center):
+	return Vector2(
+		atan2(point.y - center.y, point.x - center.x),
+		pow(point.x-center.x,2)+pow(point.y-center.y,2)
+	)
+
+func polyPointsCustomSort(a, b):
+	print(a[0].x - b[0].x || a[0].y - b[0].y, " ", a[0].x - b[0].x," ", a[0].y - b[0].y)
+	return a[0].x - b[0].x || a[0].y - b[0].y
 		
+
+func getPolygons():
+	getAllLinesCenters();
+	for centerIndex in range(points.size()):
+		var newPoly = SimplePolygon.instantiate();
+		newPoly.Center = points[centerIndex];
+		for polyLine in range(polyLinesCenters.size()):
+			var testLine = [polyLinesCenters[polyLine], points[centerIndex]];
+			var isColliding = false;
+			for collider in range(polyLinesCenters.size()):
+				if (collider == polyLine):
+					continue;
+				if(intersect(testLine[0], testLine[1], polyLines[collider][0], polyLines[collider][1])):
+					isColliding = true;
+					break;
+			if !isColliding:
+				if (newPoly.polygonPoints.find(polyLines[polyLine][0]) == -1):
+					newPoly.polygonPoints.append(polyLines[polyLine][0]);
+				if (newPoly.polygonPoints.find(polyLines[polyLine][1]) == -1):
+					newPoly.polygonPoints.append(polyLines[polyLine][1]);
+		newPoly.polygonPoints = Geometry2D.convex_hull(newPoly.polygonPoints);
+		polygons.append(newPoly);
+		#newPoly.polygonPoints
+
+
+func ccw(A : Vector2, B : Vector2, C : Vector2):
+	return (C.y-A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x) 
+
+func intersect(A : Vector2, B : Vector2, C : Vector2, D : Vector2):
+	return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D);
+	
+func getAllLinesCenters():
+	for line in polyLines:
+		polyLinesCenters.append(getLineCenter(line[0], line[1]));
+
+	
+func getLineCenter(A : Vector2, B : Vector2):
+	return Vector2(
+		(A.x+B.x)/2,
+		(A.y+B.y)/2
+	)
+
+
+
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	var time_before = Time.get_ticks_msec()
 	BOARD_SIZE = Vector2(1920,1080);
 
 	getRandomPoints()
+
+	
 	VernoiDiagram()
 	#print(points);
+
+		
+	
+	var total_time = Time.get_ticks_msec() - time_before
+	print("Time taken Vornoy: " + str(total_time))
+	
+	return;
+	time_before = Time.get_ticks_msec()
+	
+	getPolygons();
+	
+	total_time = Time.get_ticks_msec() - time_before
+	print("Time taken polygon determination: " + str(total_time))
+	
+
+	for point in range(polygons[5].polygonPoints.size()-1):
+		drawLine(polygons[5].polygonPoints[point], polygons[5].polygonPoints[point+1], Color("RED"));
+	
+	return;
+	var A = Vector2(100,100);
+	var B = Vector2(0,100);
+	var C = Vector2(50,500);
+	var D = Vector2(50,100);
+	print(intersect(A,B,C,D))
 	
 	return;
 	var point1 = Vector2(500,412);
@@ -347,3 +422,24 @@ func _ready():
 	#drawLine(points[0], points[1]);
 
 
+func deleteAllChilds(parent):
+	for n in parent.get_children():
+		parent.remove_child(n)
+		n.queue_free()
+
+func resetAll():
+	BOARD_SIZE = Vector2(1920,1080);
+	points = [];
+	lines = [];
+	polyLines = [];
+	triangles = [];
+	polyLinesCenters = [];
+	
+	deleteAllChilds($Circles);
+	deleteAllChilds($Points);
+	deleteAllChilds($Lines);
+
+func _on_timer_timeout():
+	resetAll();
+	getRandomPoints()
+	VernoiDiagram()
